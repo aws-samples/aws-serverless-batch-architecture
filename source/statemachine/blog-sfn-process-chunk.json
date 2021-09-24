@@ -1,0 +1,140 @@
+{
+  "Comment": "AWS Step Functions example for batch processing",
+  "StartAt": "Read File",
+  "States": {
+    "Read File": {
+      "Type": "Task",
+      "ResultPath": "$.fileContents",
+      "Resource": "${ReadFileFunctionArn}",
+      "Next": "Process messages"
+    },
+    "Process messages": {
+      "Type": "Map",
+      "Next": "Write output file",
+      "ItemsPath": "$.fileContents",
+      "ResultPath": "$.input.dataset",
+      "OutputPath": "$.input",
+      "Parameters": {
+        "MessageNumber.$": "$$.Map.Item.Index",
+        "MessageDetails.$": "$$.Map.Item.Value"
+      },
+      "Iterator": {
+        "StartAt": "Validate Data",
+        "States": {
+          "Validate Data": {
+            "Type": "Task",
+            "Resource": "${ValidateDataFunctionArn}",
+            "InputPath": "$.MessageDetails",
+            "ResultPath": "$.MessageDetails.validatedresult",
+            "Next": "Get Financial Data",
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "States.ALL"
+                ],
+                "ResultPath": "$.MessageDetails.error-info",
+                "Next": "Store Error Record"
+              }
+            ]
+          },
+         "Store Error Record": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::dynamodb:putItem",
+            "InputPath": "$.MessageDetails",
+            "OutputPath": "$.MessageDetails",
+           "ResultPath": null,
+            "Parameters": {
+                "TableName": "${ErrorTableName}",
+                "Item": {
+                    "uuid": {
+                        "S.$": "$.uuid"
+                    },
+                    "country": {
+                        "S.$": "$.country"
+                    },
+                    "itemType": {
+                        "S.$": "$.itemType"
+                    },
+                    "salesChannel": {
+                        "S.$": "$.salesChannel"
+                    },
+                    "orderPriority": {
+                        "S.$": "$.orderPriority"
+                    },
+                    "orderDate": {
+                        "S.$": "$.orderDate"
+                    },
+                    "region": {
+                        "S.$": "$.region"
+                    },
+                    "shipDate": {
+                        "S.$": "$.shipDate"
+                    },
+                  "error": {
+                        "S.$": "$.error-info.Error"
+                    },
+                  "cause": {
+                        "S.$": "$.error-info.Cause"
+                    }
+                }
+            },
+            "Retry": [
+                {
+                    "ErrorEquals": [
+                        "States.TaskFailed"
+                    ],
+                    "IntervalSeconds": 20,
+                    "MaxAttempts": 5,
+                    "BackoffRate": 10
+                }
+            ],
+            "End": true
+        },
+          "Get Financial Data": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::apigateway:invoke",
+            "ResultPath": "$.MessageDetails.financialdata",
+            "OutputPath": "$.MessageDetails",
+            "ResultSelector": {
+              "item.$": "$.ResponseBody.item"
+            },
+            "Parameters": {
+              "ApiEndpoint": "${ApiEndpoint}",
+              "Method": "GET",
+              "Stage": "Prod",
+              "Path.$": "States.Format('financials/{}', $.MessageDetails.uuid)",
+              "AuthType": "IAM_ROLE"
+            },
+            "Retry": [
+              {
+                "ErrorEquals": [
+                  "States.TaskFailed"
+                ],
+                "IntervalSeconds": 2,
+                "MaxAttempts": 3,
+                "BackoffRate": 1
+              }
+            ],
+            "End": true
+          }
+        }
+      }
+    },
+    "Write output file": {
+      "Type": "Task",
+      "Resource": "${WriteOutputChunkFunctionArn}",
+      "ResultPath": "$.writeOutputFileResponse",
+      "End": true,
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ]
+    }
+  }
+}

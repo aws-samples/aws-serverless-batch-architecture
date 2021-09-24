@@ -1,0 +1,124 @@
+{
+  "Comment": "State machine for batch processing",
+  "StartAt": "Split Input File into chunks",
+  "States": {
+    "Split Input File into chunks": {
+      "Type": "Task",
+      "ResultPath": "$.splitOutput",
+      "Resource": "${SplitInputFileFunctionArn}",
+      "Next": "Call Step function for each chunk"
+    },
+    "Call Step function for each chunk": {
+      "Type": "Task",
+      "Resource": "${CallStepFunctionsFunctionArn}",
+      "ResultPath": "$.callStepFunctionsOutput",
+      "Parameters": {
+        "stateMachineArn": "${BlogBatchProcessChunkArn}",
+        "splitFileNames.$": "$.splitOutput.splitFileNames",
+        "bucket.$": "$.splitOutput.bucket",
+        "toProcessFolder.$": "$.splitOutput.toProcessFolder"
+      },
+      "Next": "Wait for processing"
+    },
+    "Wait for processing": {
+      "Type": "Wait",
+      "Seconds": 60,
+      "Next": "Get chunk processing status"
+    },
+    "Get chunk processing status": {
+      "Type": "Task",
+      "Resource": "${ChunkProcessingStatusFunctionArn}",
+      "Parameters": {
+        "bucket.$": "$.splitOutput.bucket",
+        "stateMachineArnFileName.$": "$.callStepFunctionsOutput.outputPath"
+      },
+      "Next": "Processing Complete?",
+      "ResultPath": "$.status",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ]
+    },
+    "Processing Complete?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.status",
+          "StringEquals": "FAILED",
+          "Next": "Send failure notice via SNS"
+        },
+        {
+          "Variable": "$.status",
+          "StringEquals": "COMPLETED",
+          "Next": "Merge all Files"
+        }
+      ],
+      "Default": "Wait for processing"
+    },
+    "Send failure notice via SNS": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${SNSArn}",
+        "Subject": "Failure from Batch processing step function",
+        "Message": {
+          "AlertMessage": "File processing did not complete in time"
+        }
+      },
+      "Next": "Job Failed"
+    },
+    "Job Failed": {
+      "Type": "Fail",
+      "Cause": "AWS Batch Job Failed",
+      "Error": "DescribeJob returned FAILED"
+    },
+    "Merge all Files": {
+      "Type": "Task",
+      "Resource": "${MergeS3FilesFunctionArn}",
+      "Parameters": {
+        "toProcessFolder.$": "$.splitOutput.toProcessFolder",
+        "bucket.$": "$.splitOutput.bucket",
+        "key.$" : "$.splitOutput.key"
+      },
+      "ResultPath": "$.mergeResponse",
+      "Next": "Email the file",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ]
+    },
+    "Email the file": {
+      "Type": "Task",
+      "Resource": "${SendEmailFunctionArn}",
+      "Parameters": {
+        "sender": "${SESSender}",
+        "recipient": "${SESRecipient}",
+        "bucket.$": "$.splitOutput.bucket",
+        "s3OutputFileName.$": "$.mergeResponse.S3OutputFileName"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "End": true
+    }
+  }
+}
