@@ -1,25 +1,25 @@
 # Creating AWS Serverless batch processing architectures
 
-This project shows how to use AWS Step Functions’ features and integrations to orchestrate a batch processing solution. You use two Steps Functions workflows to implement batch processing, with one workflow splitting the original file and a second workflow processing each chunk file.
+This project shows how to use [AWS Step Functions](https://aws.amazon.com/step-functions/) features and integrations to orchestrate a batch processing solution. We use two Steps Functions workflows to implement batch processing, with one workflow splitting the original file and a second workflow processing each chunk file.
 
 
 ## Supporting Blog Posts
 
-Blog Post: [Creating AWS Serverless batch processing architectures](https://quip-amazon.com/Ob4pAeXbUtb9/Batch-Architectures-in-AWS-Serverless-Batch-processing)
+[Creating AWS Serverless batch processing architectures](https://aws.amazon.com/blogs/compute/creating-aws-serverless-batch-processing-architectures/)
 
 ## Architecture
 
 ![Batch processing With Step Functions - Architecture](assets/Architecture.png "Batch processing With Step Functions - Architecture")
 
-1. The file upload to an S3 bucket triggers the S3 event notification. It invokes the Lambda function asynchronously with an event that contains details about the object.
+1. The file upload to an [Amazon S3](https://aws.amazon.com/s3/) bucket triggers the S3 event notification. It invokes the [AWS Lambda](https://aws.amazon.com/lambda/) function asynchronously with an event that contains details about the object.
 2. Lambda function calls the Main batch orchestrator workflow to start the processing of the file.
 3. Main batch orchestrator workflow reads the input file and splits it into multiple chunks and stores them in an S3 bucket.
 4. Main batch orchestrator then invokes the Chunk Processor workflow for each split file chunk.
 5. Each Chunk processor workflow execution reads and processes a single split chunk file.
 6. Chunk processor workflow writes the processed chunk file back to the S3 bucket.
-7. Chunk processor workflow writes the details about any validation errors in an Amazon DB table.
+7. Chunk processor workflow writes the details about any validation errors in an [Amazon DynamoDB](https://aws.amazon.com/dynamodb/) table.
 8. Main batch orchestrator workflow then merges all the processed chunk files and saves it to an S3 bucket.
-9. Main batch orchestrator workflow then emails the consolidated files to the intended recipients using Amazon Simple Email Service.
+9. Main batch orchestrator workflow then emails the consolidated files to the intended recipients using [Amazon Simple Email Service](https://aws.amazon.com/ses/).
 
 ### AWS services used in the solution
 * [AWS Step Functions](https://aws.amazon.com/step-functions/)
@@ -57,11 +57,11 @@ aws-stepfunctions-batchprocessing/
     ├── validate-data - Chunk processor: Validates each record from each row and outputs if the record is valid or not.
     ├── get-data - Chunk processor: This is a backing function for the API gateway, this is a test function to simulate the process of enriching the data, we fetch the data from a sample DynamoDB table.
     ├── write-output-chunk - Chunk processor: This function writes the processed output chunk to the S3 bucket.
-    ├── s3-lambda-notification - This function is configured as an S3 notification handler which is called when a object is created in S3 and is reponsible for calling the Main batch orchestrator workflow
+    ├── s3-lambda-notification - This function is configured as an S3 notification handler which is called when a object is created in S3 and is reponsible for calling the Main batch orchestrator workflow.
     ├── custom-resource -
         ├── app.py - This function is responsible for adding an S3 event notification to the SourceBucket to trigger our lambda function, this notification is not added in the SAM template itself as it causes a circular dependency. This function also loads the FinancialTable DynamoDB table with initial data which will store the data that is needed by our api service (source/get-data/app.py). This is only used for the purpose of this example.
         ├── cfnresponse.py - This file is used for the cfnresponse module for our custom-resource. The cfn-response module is available only when you use the ZipFile property to write your source code. It isn't available for source code that's stored in Amazon S3 buckets, since we are not using the ZipFile property for our custom resource we have to provide this module. 
-└── template.yaml - A template that defines the application's AWS resources
+└── template.yaml - A template that defines the application's AWS resources.
 ```
 Refer [cfnresponse](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-lambda-function-code-cfnresponsemodule.html) for more details on the cfnresponse module. 
 
@@ -129,13 +129,13 @@ Note here that after the stack is created, a [custom resource](source/custom-res
 - Loads the DynamoDB table (FinancialTable) with initial data which stores the data that is needed by our [api service](source/get-data/app.py). This is only used for the purpose of this example.
 
 ### 2. Deploy the solution using AWS SAM CLI (if step 1 is not used)
-Refer the [Supporting Blog](https://github.com/aws-samples/aws-serverless-batch-architecture) post for instructions.
+Refer the [Supporting Blog](https://aws.amazon.com/blogs/compute/creating-aws-serverless-batch-processing-architectures/) post for instructions.
 
 ### 3. Testing the solution
-Refer the [Supporting Blog](https://github.com/aws-samples/aws-serverless-batch-architecture) post for instructions. 
+Refer the [Supporting Blog](https://aws.amazon.com/blogs/compute/creating-aws-serverless-batch-processing-architectures/) post for instructions. 
 
 #### Checking the output
-Refer the [Supporting Blog](https://github.com/aws-samples/aws-serverless-batch-architecture) post for instructions. 
+Refer the [Supporting Blog](https://aws.amazon.com/blogs/compute/creating-aws-serverless-batch-processing-architectures/) post for instructions. 
 
 ## Debug your AWS Lambda Function
 
