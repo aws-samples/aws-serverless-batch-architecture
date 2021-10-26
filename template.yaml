@@ -65,8 +65,6 @@ Resources:
       DefinitionUri: source/statemachine/blog-sfn-main-orchestrator.json
       DefinitionSubstitutions:
         SplitInputFileFunctionArn: !GetAtt SplitInputFileFunction.Arn
-        CallStepFunctionsFunctionArn: !GetAtt CallStepFunctionsFunction.Arn
-        ChunkProcessingStatusFunctionArn: !GetAtt ChunkProcessingStatusFunction.Arn
         MergeS3FilesFunctionArn: !GetAtt MergeS3FilesFunction.Arn
         SendEmailFunctionArn: !GetAtt SendEmailFunction.Arn
         SNSArn: !Ref SNSTopic
@@ -77,15 +75,29 @@ Resources:
         - LambdaInvokePolicy:
             FunctionName: !Ref SplitInputFileFunction
         - LambdaInvokePolicy:
-            FunctionName: !Ref CallStepFunctionsFunction
-        - LambdaInvokePolicy:
-            FunctionName: !Ref ChunkProcessingStatusFunction
-        - LambdaInvokePolicy:
             FunctionName: !Ref MergeS3FilesFunction
         - LambdaInvokePolicy:
             FunctionName: !Ref SendEmailFunction
         - SNSCrudPolicy:
             TopicName: !GetAtt SNSTopic.TopicName
+        - StepFunctionsExecutionPolicy:
+            StateMachineName: !GetAtt BlogBatchProcessChunk.Name
+        - Statement:
+            - Sid: AllowPutTargets
+              Effect: Allow
+              Action:
+                - events:PutTargets
+                - events:PutRule
+                - events:DescribeRule
+              Resource: !Sub "arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/StepFunctionsGetEventsForStepFunctionsExecutionRule"
+            - Sid: AllowStatesDescribeStop
+              Effect: Allow
+              Action:
+                 - states:DescribeExecution
+                 - states:StopExecution
+              Resource: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:execution:${BlogBatchProcessChunk.Name}:*"
+
+
 
   SplitInputFileFunction:
     Type: AWS::Serverless::Function
@@ -107,51 +119,6 @@ Resources:
       LogGroupName: !Sub /aws/lambda/${SplitInputFileFunction}
       RetentionInDays: 7
 
-  CallStepFunctionsFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: source/call-step-functions/
-      Handler: app.lambda_handler
-      Runtime: python3.8
-      Policies:
-        - StepFunctionsExecutionPolicy:
-            StateMachineName: !GetAtt BlogBatchProcessChunk.Name
-        - S3WritePolicy:
-            BucketName: !Ref SourceBucket
-
-
-  CallStepFunctionsFunctionLogGroup:
-    DependsOn: CallStepFunctionsFunction
-    Type: AWS::Logs::LogGroup
-    Properties:
-      KmsKeyId: !GetAtt LogGroupKey.Arn
-      LogGroupName: !Sub /aws/lambda/${CallStepFunctionsFunction}
-      RetentionInDays: 7
-
-  ChunkProcessingStatusFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: source/chunk-processing-status/
-      Handler: app.lambda_handler
-      Runtime: python3.8
-      Policies:
-        - S3ReadPolicy:
-            BucketName: !Ref SourceBucket
-        - Statement:
-            - Sid: AllowStatesDescribe
-              Effect: Allow
-              Action:
-                - states:DescribeExecution
-              Resource: !Sub "arn:${AWS::Partition}:states:*:${AWS::AccountId}:execution:${BlogBatchProcessChunk.Name}:*"
-
-
-  ChunkProcessingStatusFunctionLogGroup:
-    DependsOn: ChunkProcessingStatusFunction
-    Type: AWS::Logs::LogGroup
-    Properties:
-      KmsKeyId: !GetAtt LogGroupKey.Arn
-      LogGroupName: !Sub /aws/lambda/${ChunkProcessingStatusFunction}
-      RetentionInDays: 7
 
   MergeS3FilesFunction:
     Type: AWS::Serverless::Function
@@ -182,7 +149,7 @@ Resources:
       Runtime: python3.8
       Policies:
         - SESCrudPolicy:
-            IdentityName: !Ref SESSender
+            IdentityName: !Ref SESIdentityName
         - S3ReadPolicy:
             BucketName: !Ref SourceBucket
 

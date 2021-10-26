@@ -28,10 +28,11 @@ header = [
 
 
 def lambda_handler(event, context):
-    dataset = event['dataset']
-    key = event['key']
-    bucket = event['bucket']
-    output_file_key = key.replace("to_process", "output")
+    dataset = event['enrichedData']
+    input_file_key = event['FilePath']
+    output_file_key = input_file_key.replace("to_process", "output")
+    bucket_info = get_bucket_info(output_file_key)
+    print(bucket_info)
 
     out_file = StringIO()
     file_writer = csv.writer(out_file, quoting=csv.QUOTE_ALL)
@@ -42,8 +43,8 @@ def lambda_handler(event, context):
         data_list = convert_to_list(data)
         file_writer.writerow(data_list)
 
-    response = s3_client.put_object(Bucket=bucket,
-                                    Key=output_file_key,
+    response = s3_client.put_object(Bucket=bucket_info['bucket'],
+                                    Key=bucket_info['key'],
                                     Body=out_file.getvalue())
 
     if response['ResponseMetadata']['HTTPStatusCode'] != 200:
@@ -64,4 +65,13 @@ def convert_to_list(data):
                  data['financialdata']['item']['totalProfit']]
 
     return data_list
+
+def get_bucket_info(filename):
+    first_part_pos = filename.find("/")
+    if first_part_pos == -1:
+        return ""
+    bucket_name = filename[:first_part_pos]
+    file_prefix = filename[(first_part_pos + 1):]
+
+    return {"bucket": bucket_name, "key": file_prefix}
 

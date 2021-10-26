@@ -49,8 +49,6 @@ aws-stepfunctions-batchprocessing/
 ├── source
     ├── statemachine - AWS Step Functions state machines.
     ├── split-ip-file - Main batch orchestrator: Splits the input file into multiple chunks.
-    ├── call-step-functions - Main batch orchestrator: Calls the Step functions for each file chunk which is split from the original file.
-    ├── chunk-processing-status - Main batch orchestrator: Uses the Step functions API to check the execution status of each of the Chunk processor executions.
     ├── merge-s3-files - Main batch orchestrator: Takes each of the processed chunks and then merges them together.
     ├── send-email - Main batch orchestrator: Creates a S3 presigned URL for the merged S3 file and sends email to the recipients.
     ├── read-file - Chunk processor: Reads each chunk and converts them into an array of JSON objects.

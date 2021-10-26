@@ -8,7 +8,7 @@ from aws_lambda_powertools.utilities.validation import validate
 from aws_lambda_powertools.utilities.validation.exceptions import SchemaValidationError
 import schemas
 
-dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
+dynamodb = boto3.resource('dynamodb')
 
 
 def lambda_handler(event, context):

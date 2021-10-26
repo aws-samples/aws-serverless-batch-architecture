@@ -12,7 +12,7 @@
       "Type": "Map",
       "Next": "Write output file",
       "ItemsPath": "$.fileContents",
-      "ResultPath": "$.input.dataset",
+      "ResultPath": "$.input.enrichedData",
       "OutputPath": "$.input",
       "Parameters": {
         "MessageNumber.$": "$$.Map.Item.Index",

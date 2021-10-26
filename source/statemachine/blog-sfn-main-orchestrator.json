@@ -9,74 +9,32 @@
       "Next": "Call Step function for each chunk"
     },
     "Call Step function for each chunk": {
-      "Type": "Task",
-      "Resource": "${CallStepFunctionsFunctionArn}",
-      "ResultPath": "$.callStepFunctionsOutput",
+      "Type": "Map",
+      "Next": "Merge all Files",
+      "ItemsPath": "$.splitOutput.splitFileNames",
+      "ResultPath": null,
       "Parameters": {
-        "stateMachineArn": "${BlogBatchProcessChunkArn}",
-        "splitFileNames.$": "$.splitOutput.splitFileNames",
-        "bucket.$": "$.splitOutput.bucket",
-        "toProcessFolder.$": "$.splitOutput.toProcessFolder"
+        "FilePath.$": "$$.Map.Item.Value",
+        "FileIndex.$": "$$.Map.Item.Index"
       },
-      "Next": "Wait for processing"
-    },
-    "Wait for processing": {
-      "Type": "Wait",
-      "Seconds": 60,
-      "Next": "Get chunk processing status"
-    },
-    "Get chunk processing status": {
-      "Type": "Task",
-      "Resource": "${ChunkProcessingStatusFunctionArn}",
-      "Parameters": {
-        "bucket.$": "$.splitOutput.bucket",
-        "stateMachineArnFileName.$": "$.callStepFunctionsOutput.outputPath"
-      },
-      "Next": "Processing Complete?",
-      "ResultPath": "$.status",
-      "Retry": [
-        {
-          "ErrorEquals": [
-            "States.ALL"
-          ],
-          "IntervalSeconds": 1,
-          "MaxAttempts": 3,
-          "BackoffRate": 2
+      "Iterator": {
+        "StartAt": "Call Chunk Processor Workflow",
+        "States": {
+          "Call Chunk Processor Workflow": {
+           "Type":"Task",
+           "Resource":"arn:aws:states:::states:startExecution.sync:2",
+           "Parameters":{
+              "Input":{
+                "input": {
+                  "FilePath.$": "$.FilePath"
+                }
+               },
+              "StateMachineArn":"${BlogBatchProcessChunkArn}"
+           },
+           "End":true
         }
-      ]
-    },
-    "Processing Complete?": {
-      "Type": "Choice",
-      "Choices": [
-        {
-          "Variable": "$.status",
-          "StringEquals": "FAILED",
-          "Next": "Send failure notice via SNS"
-        },
-        {
-          "Variable": "$.status",
-          "StringEquals": "COMPLETED",
-          "Next": "Merge all Files"
         }
-      ],
-      "Default": "Wait for processing"
-    },
-    "Send failure notice via SNS": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::sns:publish",
-      "Parameters": {
-        "TopicArn": "${SNSArn}",
-        "Subject": "Failure from Batch processing step function",
-        "Message": {
-          "AlertMessage": "File processing did not complete in time"
-        }
-      },
-      "Next": "Job Failed"
-    },
-    "Job Failed": {
-      "Type": "Fail",
-      "Cause": "AWS Batch Job Failed",
-      "Error": "DescribeJob returned FAILED"
+      }
     },
     "Merge all Files": {
       "Type": "Task",

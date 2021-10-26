@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: MIT-0
 import boto3
 
-dynamodb_client = boto3.client("dynamodb")
 s3_client = boto3.client('s3')
 
 

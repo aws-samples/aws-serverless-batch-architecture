@@ -19,9 +19,7 @@ header = [
 
 
 def lambda_handler(event, context):
-    key = event['input']['key']
-    bucket = event['input']['bucket']
-    input_file = os.path.join(bucket, key)
+    input_file = event['input']['FilePath']
     output_data = []
     skip_first = 0
     with s3.open(input_file, 'r', newline='', encoding='utf-8-sig') as inFile:
