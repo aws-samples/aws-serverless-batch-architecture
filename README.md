@@ -103,7 +103,7 @@ Make a note of the Template parameters:
 
 - **SESSender**: The sender email address for the output file email.
 - **SESRecipient**: The recipient email address for the output file email.
-- **SESIdentityName**: An email address or domain that Amazon SES users use to send email.
+- **SESIdentityName**: An email address or domain that Amazon SES users use to send email. It is a best practice to authorize only specific email addresses, such as in this case you can keep it same as the SESSender (email address to send emails). If your SES Accounts are in sandbox you have to specify both the sender and recipient emails, in that case modify the template.yaml to add the permissions for recipient email address.
 - **InputArchiveFolder**: Amazon S3 prefix in the SourceBucket where the input file will be archived after processing.
 - **FileChunkSize**: Size of each of the chunks, which is split from the input file. For this use case the chunk size of each file is around 600 rows i.e. the input file is split into multiple files with each file having 600 rows, the desired chunk size is passed in the event payload to the Main orchestrator workflow. The split chunk file is then passed as a payload to the chunk processor workflow, executions that pass large payloads of data between states can be terminated if the data you are passing between states could grow to over the maximum payload size of 262,144 bytes. You will have to adjust this value based on the data in the input file.
 - **FileDelimiter**: Delimiter of the CSV file (for example, a comma).

@@ -12,22 +12,28 @@ Globals:
 Parameters:
   SESSender:
     Type: String
-    Default: "user@example.com"
+    Default: "sender@example.com"
+    Description: Specify the sender email address.
   SESRecipient:
     Type: String
-    Default: "user@example.com"
+    Default: "recipient@example.com"
+    Description: Specify the recipient email address.
   SESIdentityName:
     Type: String
-    Default: "example.com"
+    Default: "sender@example.com"
+    Description: An email address or domain that Amazon SES users use to send email. It is a best practice to authorize only specific email addresses such as in this case sender@example.com to send emails. If your SES Accounts are in sandbox you have to specify both the sender and recipient emails, in that case modify the template.yaml to add the permissions for recipient email address.
   InputArchiveFolder:
     Type: String
     Default: "input_archive"
+    Description: Amazon S3 prefix in the SourceBucket where the input file will be archived after processing.
   FileChunkSize:
     Type: String
     Default: 600
+    Description: Size of each of the chunks, which is split from the input file.
   FileDelimiter:
     Type: String
     Default: ","
+    Description: Delimiter of the CSV file (for example, a comma).
 
 
 Resources:
@@ -361,13 +367,14 @@ Resources:
   SourceBucket:
     Type: AWS::S3::Bucket
     Properties:
-      #BucketName: !Sub "${AWS::StackName}-${AWS::Region}"
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
       LoggingConfiguration:
         DestinationBucketName: !Ref LoggingBucket
+      VersioningConfiguration:
+        Status: Enabled
 
   LoggingBucket:
     Type: 'AWS::S3::Bucket'
@@ -377,6 +384,8 @@ Resources:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
 
   S3NotificationLambdaFunction:
     Type: AWS::Serverless::Function
